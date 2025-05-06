@@ -1,0 +1,12 @@
+numpy
+nltk
+pandas
+tqdm
+torch
+torchvision
+matplotlib
+scikit-learn
+gdown
+contractions
+pyspellchecker
+pyyaml
