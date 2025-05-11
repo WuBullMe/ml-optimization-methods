@@ -166,17 +166,3 @@ class BaseDataLoader:
             self.get_dataset(),
             **loader_kwargs
         )
-        
-    def num_classes(self) -> Optional[int]:
-        """Get number of classes if available"""
-        dataset = self.get_dataset()
-        if hasattr(dataset, 'classes'):
-            return len(dataset.classes)
-        return None
-        
-    def class_names(self) -> Optional[list]:
-        """Get class names if available"""
-        dataset = self.get_dataset()
-        if hasattr(dataset, 'classes'):
-            return dataset.classes
-        return None

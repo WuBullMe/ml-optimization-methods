@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional, Union
 from torch.utils.data import Dataset, DataLoader
 from torchvision import datasets, transforms
 
-class ResNet50DataLoader:
+class Cifar10DataLoader:
     """Parser for PyTorch datasets with flexible configuration support"""
 
     def __init__(self, config: Dict[str, Any]):

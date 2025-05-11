@@ -2,17 +2,24 @@ import argparse
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).parent.parent))
+import torch
 
 import yaml
 from yaml import SafeLoader
 
+sys.path.append(str(Path(__file__).parent.parent))
+
 #list models
 from models.resnet50.model import ResNet50Model
 from models.resnet50.dataloader import ResNet50DataLoader
+from models.net.model import NetModel
 
 #list optimizations
 from optimizers.sample import SimpleOptimization
+from optimizers.prune import PruneOptimization
+
+#list dataloaders
+from models.net.dataloader import Cifar10DataLoader
 
 def get_loader():
     loader = SafeLoader
@@ -21,6 +28,7 @@ def get_loader():
     return loader
 
 if __name__ == '__main__':
+    
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', dest='config_path', type=str, help='path to yaml file')
     args = parser.parse_args()
@@ -29,20 +37,23 @@ if __name__ == '__main__':
     with open(config_path, 'r') as f:
         config = yaml.load(f, Loader=get_loader())
 
+
     my_class_model = globals()[config["model"]["name_class"]]
     model = my_class_model(config["model"]["params"])
 
-    my_class_dataloader = globals()[config["dataset"]["name_class"]]
-    dataloader = my_class_dataloader(config["dataset"])
+    
 
-    data_loader = dataloader.get_dataloader()
+    dataloaders = {}
+    for dataset in config["dataset"]:
+        my_class_dataloader = globals()[dataset["name_class"]]
+        dataloaders[dataset["split"]] = my_class_dataloader(dataset)
     
     my_class_optimization = globals()[config["optimization"]["name_class"]]
-    optimization = my_class_optimization(config["optimization"]["params"])
+    optimization = my_class_optimization(config["optimization"])
 
     final_model = optimization.fit(
         master_model=model,
-        data=data_loader
+        dataloaders=dataloaders
     )
 
     final_model.save(config["optimization"]["result_dir"])
