@@ -37,6 +37,8 @@ class PruningModule(pl.LightningModule):
             layers_to_prune: List of layer names to prune (None = all Conv/Linear layers)
             global_pruning: Whether to prune across all specified layers simultaneously
             prune_every_n_epochs: Frequency of pruning
+            optimizer: What optimizer to use for training and its params
+            scheduler: Scheduler for optimizer and its params
         """
         super().__init__()
         self.model = copy.deepcopy(model)
