@@ -10,3 +10,6 @@ gdown
 contractions
 pyspellchecker
 pyyaml
+pytorch-lightning
+tensorboard
+standard-imghdr

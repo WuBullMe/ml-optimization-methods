@@ -40,13 +40,12 @@ if __name__ == '__main__':
 
     my_class_model = globals()[config["model"]["name_class"]]
     model = my_class_model(config["model"]["params"])
-
     
 
     dataloaders = {}
     for dataset in config["dataset"]:
         my_class_dataloader = globals()[dataset["name_class"]]
-        dataloaders[dataset["split"]] = my_class_dataloader(dataset)
+        dataloaders[dataset["split"]] = my_class_dataloader(dataset).get_dataloader()
     
     my_class_optimization = globals()[config["optimization"]["name_class"]]
     optimization = my_class_optimization(config["optimization"])
@@ -55,5 +54,3 @@ if __name__ == '__main__':
         master_model=model,
         dataloaders=dataloaders
     )
-
-    final_model.save(config["optimization"]["result_dir"])
