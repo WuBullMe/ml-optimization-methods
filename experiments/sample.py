@@ -16,7 +16,7 @@ from models.net.model import NetModel
 
 #list optimizations
 from optimizers.sample import SimpleOptimization
-from optimizers.prune import PruneOptimization
+# from optimizers.prune import PruneOptimization
 
 #list dataloaders
 from models.net.dataloader import Cifar10DataLoader
@@ -28,9 +28,9 @@ def get_loader():
     return loader
 
 if __name__ == '__main__':
-    
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config_path', dest='config_path', type=str, help='path to yaml file')
+    parser.add_argument('--config_path', dest='config_path', type=str, help='path to yaml file', default='../configs/sample.yaml')
     args = parser.parse_args()
 
     config_path = args.config_path
@@ -41,19 +41,16 @@ if __name__ == '__main__':
     my_class_model = globals()[config["model"]["name_class"]]
     model = my_class_model(config["model"]["params"])
 
-    
-
     dataloaders = {}
-    for dataset in config["dataset"]:
-        my_class_dataloader = globals()[dataset["name_class"]]
-        dataloaders[dataset["split"]] = my_class_dataloader(dataset)
+    my_class_dataloader = globals()[config['dataset']['name_class']]
+    dataloaders[config['dataset']["split"]] = my_class_dataloader(config['dataset'])
     
     my_class_optimization = globals()[config["optimization"]["name_class"]]
     optimization = my_class_optimization(config["optimization"])
 
     final_model = optimization.fit(
         master_model=model,
-        dataloaders=dataloaders
+        data=dataloaders
     )
 
     final_model.save(config["optimization"]["result_dir"])
