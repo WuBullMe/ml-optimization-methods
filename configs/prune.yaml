@@ -64,8 +64,6 @@ optimization:
     strategy: "auto"
     benchmark: true
 
-  result_dir: "models/result/cifar10_prune"
-
 # Data configuration
 dataset:
   - name_class: "Cifar10DataLoader"
