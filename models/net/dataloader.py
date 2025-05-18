@@ -1,9 +1,8 @@
-import importlib
-import yaml
-import os
+import torch
 from typing import Dict, Any, Optional, Union
 from torch.utils.data import Dataset, DataLoader
 from torchvision import datasets, transforms
+from torch.utils.data import Subset
 
 class Cifar10DataLoader:
     """Parser for PyTorch datasets with flexible configuration support"""
@@ -90,13 +89,28 @@ class Cifar10DataLoader:
         # Handle different splits
         split = self.dataset_info['split']
         transform = self.transforms[split]
-        return dataset_class(
+        dataset = dataset_class(
             root=self.dataset_info['root'],
             train=(split=="train"),
             download=self.dataset_info['download'],
             transform=transform,
             #target_transform=self.dataset_info['target_transform']
         )
+        size = self.dataset_info.get('size', len(dataset))
+        if isinstance(size, float):
+            num_samples = int(len(dataset) * size)
+        elif isinstance(size, int):
+            num_samples = size
+        else:
+            raise ValueError("Size must be either a float or an integer.")
+        
+        if num_samples == len(dataset):
+            return dataset
+        
+        num_samples = min(num_samples, len(dataset))
+        indices = torch.randperm(len(dataset))[:num_samples]
+
+        return Subset(dataset, indices)
         
     def get_dataset(self) -> Dataset:
         """Get the configured dataset instance"""
