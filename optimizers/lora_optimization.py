@@ -25,12 +25,15 @@ class LoRALayer(torch.nn.Module):
         original_output = self.original_layer(x)
         lora_output = x @ self.A @ self.B
         return original_output + lora_output
-    
-class LoRALightningModule(pl.LightningModule):
-    def __init__(self, model, config, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+
+
+class LoRAModule(pl.LightningModule):
+    def __init__(self, model, optimizer=None, scheduler=None):
+        super().__init__()
         self.model = model
-        self.config = config
+        self.optimizer = optimizer
+        self.scheduler = scheduler
+
         self.loss = nn.CrossEntropyLoss()
     
     def training_step(self, batch, batch_idx):
@@ -41,6 +44,15 @@ class LoRALightningModule(pl.LightningModule):
 
         self.log('train_loss', loss, prog_bar=True)
         return loss
+    
+    def validation_step(self, batch, batch_idx):
+        x, y = batch
+        
+        outputs = self.model(x)
+        loss = self.loss(outputs, y)
+
+        self.log('val_loss', loss)
+        return loss
 
     def configure_optimizers(self):
         # Setup optimizer (only train LoRA parameters)
@@ -49,15 +61,40 @@ class LoRALightningModule(pl.LightningModule):
             if isinstance(m, LoRALayer):
                 lora_params += [m.A, m.B]
 
-        return torch.optim.Adam(lora_params, lr=self.config['optimization']['lr'])
+        optim = getattr(torch.optim, self.optimizer["name"])
+        optim = optim(lora_params, **self.optimizer["params"])
+
+        if self.scheduler is not None:
+            scheduler = getattr(torch.optim.lr_scheduler, self.scheduler["name"])
+            scheduler = scheduler(optim, **{key: eval(val) if "lambda" in key else val for key, val in self.scheduler["params"].items()})
+
+            return [optim], [scheduler]
+
+        return optim
 
 
 # LoRA Optimization Class
 class LoROptimization(torch.nn.Module):
     def __init__(self, config):
-        super().__init__()
         self.config = config
+
+        self._setup_config_training()
+    
+    def _setup_config_training(self):
+        def get_callback(cb_config):
+            cls = getattr(pl.callbacks, cb_config["class"])
+            return cls(**cb_config.get("params", {}))
+
+        def get_logger(log_config):
+            return pl.loggers.TensorBoardLogger(**log_config.get("params", {}))
         
+        self.setup_training = {
+            "callbacks": [get_callback(cb) for cb in self.config["callbacks"]],
+            "logger": get_logger(self.config["logging"]),
+            **self.config["hardware"],
+            **self.config["train"]
+        }
+
     def _apply_lora(self, module, rank):
         for name, child in module.named_children():
             if isinstance(child, torch.nn.Linear):
@@ -67,24 +104,18 @@ class LoROptimization(torch.nn.Module):
                 # Recursively apply to child modules
                 self._apply_lora(child, rank)
 
-    def fit(self, model, data, config):
+    def fit(self, model, dataloaders):
         # Create a copy of the model
         model = copy.deepcopy(model)
         
         # Apply LoRA to all Linear layers
         self._apply_lora(model, self.config['rank'])
-        pl_model = LoRALightningModule(model, config)
+        pl_model = LoRAModule(model, **self.config["LoRAModule"])
         
         trainer = pl.Trainer(
-            max_epochs=self.config.get('epochs', 10),
-            accelerator='auto',
-            devices=1,
-            enable_progress_bar=True,
-            enable_model_summary=True,
-            max_steps=1,
-            num_sanity_val_steps=1
+            **self.setup_training
         )
 
-        trainer.fit(pl_model, data)
+        trainer.fit(pl_model, dataloaders["train"], dataloaders["val"])
 
         return model

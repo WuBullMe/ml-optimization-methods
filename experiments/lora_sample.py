@@ -11,10 +11,14 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 #list models
 from models.lora.model import LoRaModel
+from models.net.model import NetModel
 from models.lora.dataloader import TorchDataLoader
 
 #list optimizations
 from optimizers.lora_optimization import LoROptimization
+
+#list dataloaders
+from models.net.dataloader import Cifar10DataLoader
 
 def get_loader():
     loader = SafeLoader
@@ -36,16 +40,14 @@ if __name__ == '__main__':
     model = model_def(config["model"]["params"])
 
     dataloaders = {}
-    my_class_dataloader = globals()[config['dataset']['name_class']]
-    dataloaders[config['dataset']["split"]] = my_class_dataloader(config['dataset'])
+    for dataset in config["dataset"]:
+        my_class_dataloader = globals()[dataset["name_class"]]
+        dataloaders[dataset["split"]] = my_class_dataloader(dataset).get_dataloader()
 
     my_class_optimization = globals()[config["optimization"]["name_class"]]
     optimization = my_class_optimization(config["optimization"])
 
     final_model = optimization.fit(
         model=model,
-        data=dataloaders['train'].get_dataloader(),
-        config=config,
+        dataloaders=dataloaders
     )
-
-    final_model.save(config["optimization"]["result_dir"])
