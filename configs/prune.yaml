@@ -1,0 +1,102 @@
+# Model configuration
+model:
+  name_class: "NetModel"
+  params: {}
+
+# Optimization techniques
+optimization:
+  name_class: "PruneOptimization"
+  PruningModule: 
+    layers_to_prune: ["Conv2d", "Linear"]
+    pruning_method: l1_unstructured
+    global_pruning: False
+    amount: 0.03
+    prune_every_n_epochs: 2
+
+    optimizer:
+      name: "Adam"
+      params:
+        lr: 0.001
+
+    scheduler:
+      name: "LambdaLR"
+      params:
+        lr_lambda: "lambda epoch: 0.95 ** epoch"
+    
+  train:
+    max_epochs: 10
+
+  
+  callbacks:
+    - class: "ModelCheckpoint"
+      params:
+        monitor: "val_loss"
+        mode: "min"
+        save_top_k: 3
+        filename: "best-{epoch}-{val_loss:.2f}"
+        auto_insert_metric_name: false
+        save_last: true
+
+    - class: "EarlyStopping"
+      params:
+        monitor: "val_loss"
+        patience: 10
+        mode: "min"
+        min_delta: 0.001
+
+    - class: "LearningRateMonitor"
+      params:
+        logging_interval: "epoch"
+
+  logging:
+    logger: "TensorBoard"
+    params:
+      save_dir: "./logs"
+      name: "prune_netmodel_cifar10"
+      version: "1"
+      default_hp_metric: false
+
+    log_every_n_steps: 1
+  
+  hardware:
+    accelerator: "gpu"
+    devices: 1
+    strategy: "auto"
+    benchmark: true
+
+# Data configuration
+dataset:
+  - name_class: "Cifar10DataLoader"
+    name: "CIFAR10"
+    root: "./data"
+    split: "train"
+    download: True
+    batch_size: 128
+    num_workers: 4
+    transforms:
+      train:
+        Resize:
+          size: !!python/tuple [224, 224]
+        RandomHorizontalFlip:
+          p: 0.5
+        ToTensor: {}
+        Normalize:
+          mean: [0.4914, 0.4822, 0.4465]
+          std: [0.2023, 0.1994, 0.2010]
+
+  - name_class: "Cifar10DataLoader"
+    name: "CIFAR10"
+    root: "./data"
+    split: "val"
+    download: True
+    batch_size: 128
+    num_workers: 4
+    pin_memory: True
+    transforms:
+      val:
+        Resize:
+          size: !!python/tuple [224, 224]
+        ToTensor: {}
+        Normalize:
+          mean: [0.4914, 0.4822, 0.4465]
+          std: [0.2023, 0.1994, 0.2010]
