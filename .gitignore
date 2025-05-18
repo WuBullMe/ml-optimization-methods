@@ -1,4 +1,14 @@
+#python enviroment
 .venv
+
 experiments/lightning_logs
 experiments/data
+
+# tensorboard logs
+experiments/logs
+logs
+
 *.pyc
+
+# downloaded data
+data

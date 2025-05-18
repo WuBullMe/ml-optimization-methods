@@ -7,54 +7,104 @@ model:
       pretrained: True
 
   student:
-    name_class: "StudentModel"
-    model_name: "resnet18"
+    name_class: "NetModel"
+    model_name: "NetModel"
     params:
       pretrained: True
 
 # Optimization techniques
 optimization:
   name_class: "KDOptimization"
-  params: {}
-  result_dir: "../results/kd/first_exp"
+  KDModule: 
+    alpha_loss: 0.5
+    temperature: 1
+
+    optimizer:
+      name: "Adam"
+      params:
+        lr: 0.001
+
+    scheduler:
+      name: "LambdaLR"
+      params:
+        lr_lambda: "lambda epoch: 0.95 ** epoch"
+    
+  train:
+    max_epochs: 10
+
+  
+  callbacks:
+    - class: "ModelCheckpoint"
+      params:
+        monitor: "val_loss"
+        mode: "min"
+        save_top_k: 3
+        filename: "best-{epoch}-{val_loss:.2f}"
+        auto_insert_metric_name: false
+        save_last: true
+
+    - class: "EarlyStopping"
+      params:
+        monitor: "val_loss"
+        patience: 10
+        mode: "min"
+        min_delta: 0.001
+
+    - class: "LearningRateMonitor"
+      params:
+        logging_interval: "epoch"
+
+  logging:
+    logger: "TensorBoard"
+    params:
+      save_dir: "./logs"
+      name: "kd_resnet_and_net_model_cifar10"
+      version: "3"
+      default_hp_metric: true
+
+    log_every_n_steps: 1
+  
+  hardware:
+    accelerator: "cpu"
+    devices: 1
+    strategy: "auto"
+    benchmark: true
 
 # Data configuration
 dataset:
-  name_class: "TorchDataLoader"
-  name: "CIFAR10"
-  root: "./data"
-  split: "train"
-  download: True
-  batch_size: 128
-  num_workers: 4
-  pin_memory: True
-  transforms:
-    train:
-      Resize:
-        size: !!python/tuple [224, 224]
-      RandomHorizontalFlip:
-        p: 0.5
-      ToTensor: {}
-      Normalize:
-        mean: [0.4914, 0.4822, 0.4465]
-        std: [0.2023, 0.1994, 0.2010]
-    val:
-      Resize:
-        size: !!python/tuple [224, 224]
-      ToTensor: {}
-      Normalize:
-        mean: [0.4914, 0.4822, 0.4465]
-        std: [0.2023, 0.1994, 0.2010]
-    test:
-      Resize:
-        size: !!python/tuple [224, 224]
-      ToTensor: {}
-      Normalize:
-        mean: [0.4914, 0.4822, 0.4465]
-        std: [0.2023, 0.1994, 0.2010]
+  - name_class: "Cifar10DataLoader"
+    name: "CIFAR10"
+    root: "./data"
+    split: "train"
+    download: True
+    batch_size: 128
+    num_workers: 4
+    # size: 1000
+    transforms:
+      train:
+        Resize:
+          size: !!python/tuple [224, 224]
+        RandomHorizontalFlip:
+          p: 0.5
+        ToTensor: {}
+        Normalize:
+          mean: [0.4914, 0.4822, 0.4465]
+          std: [0.2023, 0.1994, 0.2010]
 
-# Logging configuration
-logging:
-  log_dir: "./logs/resnet50"
-  wandb_project: "model_optimization"
-  log_freq: 100
+  - name_class: "Cifar10DataLoader"
+    name: "CIFAR10"
+    root: "./data"
+    split: "val"
+    download: True
+    batch_size: 128
+    num_workers: 4
+    pin_memory: True
+    # size: 100
+    transforms:
+      val:
+        Resize:
+          size: !!python/tuple [224, 224]
+        ToTensor: {}
+        Normalize:
+          mean: [0.4914, 0.4822, 0.4465]
+          std: [0.2023, 0.1994, 0.2010]

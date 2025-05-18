@@ -3,14 +3,15 @@ from torch import nn
 import pytorch_lightning as pl
 
 # Knowledge Distillation Lightning Module
-class KDLightningModule(pl.LightningModule):
-    def __init__(self, student, teacher, alpha, temperature, lr):
+class KDModule(pl.LightningModule):
+    def __init__(self, student, teacher, alpha_loss, temperature, optimizer=None, scheduler=None):
         super().__init__()
         self.student = student
         self.teacher = teacher
-        self.alpha = alpha
+        self.alpha_loss = alpha_loss
         self.temperature = temperature
-        self.lr = lr
+        self.optimizer = optimizer
+        self.scheduler = scheduler
 
         # Freeze teacher parameters
         for param in self.teacher.parameters():
@@ -35,39 +36,82 @@ class KDLightningModule(pl.LightningModule):
         ) * (self.temperature ** 2)
 
         # Combined loss
-        loss = self.alpha * loss_ce + (1 - self.alpha) * loss_kd
+        loss = self.alpha_loss * loss_ce + (1 - self.alpha_loss) * loss_kd
 
         self.log('train_loss', loss, prog_bar=True)
         return loss
 
+    def validation_step(self, batch, batch_idx):
+        x, y = batch
+        
+        student_logits = self.student(x)
+        teacher_logits = self.teacher(x)
+
+        # Calculate losses
+        loss_ce = nn.functional.cross_entropy(student_logits, y)
+        loss_kd = nn.functional.kl_div(
+            nn.functional.log_softmax(student_logits / self.temperature, dim=1),
+            nn.functional.softmax(teacher_logits / self.temperature, dim=1),
+            reduction='batchmean'
+        ) * (self.temperature ** 2)
+
+        # Combined loss
+        loss = self.alpha_loss * loss_ce + (1 - self.alpha_loss) * loss_kd
+
+        losses = {
+            'val_loss': loss,
+            'val_student_ce_loss': loss_ce,
+            'val_kl_div_loss': loss_kd,
+        }
+
+        self.log_dict(losses)
+        return losses
+
     def configure_optimizers(self):
-        return torch.optim.Adam(self.student.parameters(), lr=self.lr)
+        optim = getattr(torch.optim, self.optimizer["name"])
+        optim = optim(self.student.parameters(), **self.optimizer["params"])
+
+        if self.scheduler is not None:
+            scheduler = getattr(torch.optim.lr_scheduler, self.scheduler["name"])
+            scheduler = scheduler(optim, **{key: eval(val) if "lambda" in key else val for key, val in self.scheduler["params"].items()})
+
+            return [optim], [scheduler]
+        
+        return optim
 
 # KD Optimization Class
 class KDOptimization(nn.Module):
     def __init__(self, config):
-        super().__init__()
         self.config = config
 
-    def fit(self, teacher_model, student_model, data):
-        kd_module = KDLightningModule(
+        self._setup_config_training()
+    
+    def _setup_config_training(self):
+        def get_callback(cb_config):
+            cls = getattr(pl.callbacks, cb_config["class"])
+            return cls(**cb_config.get("params", {}))
+
+        def get_logger(log_config):
+            return pl.loggers.TensorBoardLogger(**log_config.get("params", {}))
+        
+        self.setup_training = {
+            "callbacks": [get_callback(cb) for cb in self.config["callbacks"]],
+            "logger": get_logger(self.config["logging"]),
+            **self.config["hardware"],
+            **self.config["train"]
+        }
+
+    def fit(self, teacher_model, student_model, dataloaders):
+        kd_module = KDModule(
             student=student_model,
             teacher=teacher_model,
-            alpha=self.config.get('alpha', 0.5),
-            temperature=self.config.get('temperature', 5.0),
-            lr=self.config.get('lr', 0.001)
+            **self.config["KDModule"]
         )
 
         trainer = pl.Trainer(
-            max_epochs=self.config.get('epochs', 10),
-            accelerator='auto',
-            devices=1,
-            enable_progress_bar=True,
-            enable_model_summary=True,
-            max_steps=1,
-            num_sanity_val_steps=1
+            **self.setup_training
         )
 
-        trainer.fit(kd_module, data)
+        trainer.fit(kd_module, dataloaders["train"], dataloaders["val"])
 
         return student_model

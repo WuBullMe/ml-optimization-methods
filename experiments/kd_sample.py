@@ -11,10 +11,14 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 #list models
 from models.kd.model import TeacherModel, StudentModel
+from models.net.model import NetModel
 from models.kd.dataloader import TorchDataLoader
 
 #list optimizations
 from optimizers.kd_optimization import KDOptimization
+
+#list dataloaders
+from models.net.dataloader import Cifar10DataLoader
 
 def get_loader():
     loader = SafeLoader
@@ -39,19 +43,15 @@ if __name__ == '__main__':
     student_model = student_model_def(config["model"]['student']["params"])
 
     dataloaders = {}
-    my_class_dataloader = globals()[config['dataset']['name_class']]
-    dataloaders[config['dataset']["split"]] = my_class_dataloader(config['dataset'])
+    for dataset in config["dataset"]:
+        my_class_dataloader = globals()[dataset["name_class"]]
+        dataloaders[dataset["split"]] = my_class_dataloader(dataset).get_dataloader()
 
     my_class_optimization = globals()[config["optimization"]["name_class"]]
     optimization = my_class_optimization(config["optimization"])
 
-    import os
-    print(os.getcwd())
-
     final_model = optimization.fit(
         teacher_model=teacher_model,
         student_model=student_model,
-        data=dataloaders['train'].get_dataloader(),
+        dataloaders=dataloaders
     )
-
-    final_model.save(config["optimization"]["result_dir"])
