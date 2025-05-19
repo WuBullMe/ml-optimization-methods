@@ -1,0 +1,1 @@
+python prune_train.py --config_path prune_config.yaml

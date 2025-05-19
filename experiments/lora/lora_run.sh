@@ -1,0 +1,1 @@
+python lora_train.py --config_path lora_config.yaml
