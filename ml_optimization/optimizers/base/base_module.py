@@ -3,42 +3,21 @@ from torch import nn
 import pytorch_lightning as pl
 from sklearn.metrics import recall_score, precision_score, f1_score
 
-# Knowledge Distillation Lightning Module
-class KDModule(pl.LightningModule):
-    def __init__(self, student, teacher, alpha_loss, temperature, optimizer=None, scheduler=None):
+# Base Lightning Module
+class BaseModule(pl.LightningModule):
+    def __init__(self, model, optimizer=None, scheduler=None):
         super().__init__()
-        self.student = student
-        self.teacher = teacher
-        self.alpha_loss = alpha_loss
-        self.temperature = temperature
+        self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
-        self.validation_data = []
 
-        # Freeze teacher parameters
-        for param in self.teacher.parameters():
-            param.requires_grad = False
+        self.validation_data = []
 
     def training_step(self, batch, batch_idx):
         x, y = batch
         
-        # Teacher predictions
-        with torch.no_grad():
-            teacher_logits = self.teacher(x)
-
-        # Student predictions
-        student_logits = self.student(x)
-
-        # Calculate losses
-        loss_ce = nn.functional.cross_entropy(student_logits, y)
-        loss_kd = nn.functional.kl_div(
-            nn.functional.log_softmax(student_logits / self.temperature, dim=1),
-            nn.functional.softmax(teacher_logits / self.temperature, dim=1),
-            reduction='batchmean'
-        ) * (self.temperature ** 2)
-
-        # Combined loss
-        loss = self.alpha_loss * loss_ce + (1 - self.alpha_loss) * loss_kd
+        model_logits = self.model(x)
+        loss = nn.functional.cross_entropy(model_logits, y)
 
         self.log('train_loss', loss, prog_bar=True)
         return loss
@@ -46,30 +25,13 @@ class KDModule(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         x, y = batch
         
-        student_logits = self.student(x)
-        teacher_logits = self.teacher(x)
+        model_logits = self.model(x)
 
-        self.validation_data.append((torch.argmax(student_logits, -1), y))
+        self.validation_data.append((torch.argmax(model_logits, -1), y))
 
-        # Calculate losses
-        loss_ce = nn.functional.cross_entropy(student_logits, y)
-        loss_kd = nn.functional.kl_div(
-            nn.functional.log_softmax(student_logits / self.temperature, dim=1),
-            nn.functional.softmax(teacher_logits / self.temperature, dim=1),
-            reduction='batchmean'
-        ) * (self.temperature ** 2)
-
-        # Combined loss
-        loss = self.alpha_loss * loss_ce + (1 - self.alpha_loss) * loss_kd
-
-        losses = {
-            'val_loss': loss,
-            'val_student_ce_loss': loss_ce,
-            'val_kl_div_loss': loss_kd,
-        }
-
-        self.log_dict(losses)
-        return losses
+        loss = nn.functional.cross_entropy(model_logits, y)
+        self.log('val_loss', loss)
+        return loss
     
     def on_validation_epoch_end(self):
         model_logits = torch.stack([x[0] for x in self.validation_data])[0].cpu()
@@ -96,7 +58,7 @@ class KDModule(pl.LightningModule):
 
     def configure_optimizers(self):
         optim = getattr(torch.optim, self.optimizer["name"])
-        optim = optim(self.student.parameters(), **self.optimizer["params"])
+        optim = optim(self.model.parameters(), **self.optimizer["params"])
 
         if self.scheduler is not None:
             scheduler = getattr(torch.optim.lr_scheduler, self.scheduler["name"])

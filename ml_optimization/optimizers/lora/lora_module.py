@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
+from sklearn.metrics import recall_score, precision_score, f1_score
 
 # LoRA Layer Implementation
 class LoRALayer(torch.nn.Module):
@@ -32,6 +33,7 @@ class LoRAModule(pl.LightningModule):
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
+        self.validation_data = []
 
         self.loss = nn.CrossEntropyLoss()
     
@@ -50,8 +52,32 @@ class LoRAModule(pl.LightningModule):
         outputs = self.model(x)
         loss = self.loss(outputs, y)
 
+        self.validation_data.append((torch.argmax(outputs, -1), y))
+
         self.log('val_loss', loss)
         return loss
+    
+    def on_validation_epoch_end(self):
+        model_logits = torch.stack([x[0] for x in self.validation_data])[0].cpu()
+        model_targets = torch.stack([x[1] for x in self.validation_data])[0].cpu()
+
+        metrics = {
+            'val_accuracy': (model_logits == model_targets).float().mean().item(),
+            'val_recall_micro': recall_score(model_targets, model_logits, average='micro', zero_division=0),
+            'val_recall_macro': recall_score(model_targets, model_logits, average='macro', zero_division=0),
+            'val_recall_weighted': recall_score(model_targets, model_logits, average='weighted', zero_division=0),
+
+            'val_precision_micro': precision_score(model_targets, model_logits, average='micro', zero_division=0),
+            'val_precision_macro': precision_score(model_targets, model_logits, average='macro', zero_division=0),
+            'val_precision_weighted': precision_score(model_targets, model_logits, average='weighted', zero_division=0),
+
+            'val_f1_micro': f1_score(model_targets, model_logits, average='micro', zero_division=0),
+            'val_f1_macro': f1_score(model_targets, model_logits, average='macro', zero_division=0),
+            'val_f1_weighted': f1_score(model_targets, model_logits, average='weighted', zero_division=0),
+        }
+        self.log_dict(metrics)
+        self.validation_data.clear()
+        return metrics
 
     def configure_optimizers(self):
         # Setup optimizer (only train LoRA parameters)
