@@ -1,0 +1,1 @@
+python kd_train.py --config_path kd_config.yaml
