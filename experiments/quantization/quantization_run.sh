@@ -1,0 +1,1 @@
+python3 experiments/quantization/quantization_train.py --config_path experiments/quantization/quantization_config.yaml
