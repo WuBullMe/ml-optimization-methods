@@ -1,5 +1,6 @@
 import pytorch_lightning as pl
 import torch.nn as nn
+import torch
 
 from .quantization_module import QuantizationModule
 
@@ -30,7 +31,7 @@ class QuantizationOptimization(nn.Module):
             dataloaders
             ):
 
-        pruner = QuantizationModule(
+        quantization = QuantizationModule(
             model=master_model,
             **self.config["QuantizationModule"]
         )
@@ -39,4 +40,7 @@ class QuantizationOptimization(nn.Module):
             **self.setup_training
         )
 
-        trainer.fit(pruner, dataloaders["train"], dataloaders["val"])
+        trainer.fit(quantization, dataloaders["train"], dataloaders["val"])
+
+        if self.config["QuantizationModule"]["quantization_method"] == "qat":
+            quantized_model = torch.quantization.convert(prepared_model.eval())

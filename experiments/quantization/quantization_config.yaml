@@ -7,10 +7,11 @@ model:
 optimization:
   name_class: "QuantizationOptimization"
   QuantizationModule: 
-    quantization_method: "dynamic_int8"
+    quantization_method: "qat"
     quantization_params:
       calibration_steps: 200
       calibration_batch_size: 32
+      qat_epochs: 10
     bits: 8
     layers: ["Linear", "Conv2d"]
 

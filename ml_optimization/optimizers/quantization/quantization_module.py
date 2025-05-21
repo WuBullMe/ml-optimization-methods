@@ -17,10 +17,10 @@ class QuantizationModule(pl.LightningModule):
         scheduler: Dict[str, str] = None
     ):
         """
-        PyTorch Lightning module for model pruning.
+        PyTorch Lightning module for model quantize.
         
         Args:
-            model: The model to prune
+            model: The model to quantize
         """
         super().__init__()
         self.model = copy.deepcopy(model)
@@ -41,13 +41,13 @@ class QuantizationModule(pl.LightningModule):
         bits = self.quantization_config.get('bits', 8)
         
         if quant_type.startswith("dynamic"):
-            return self._apply_dynamic_quantization(self.model)
+            self._apply_dynamic_quantization()
         # elif quant_type == 'static':
         #     return self._apply_static_quantization(self.model)
         elif quant_type.startswith("qat"):
-            return self._apply_qat(self.model)
-        elif quant_type.startswith("fp16"):
-            return self.model.half()
+            self._apply_qat()
+        # elif quant_type.startswith("fp16"):
+        #     return self.model.half()
         else:
             raise ValueError(f"Unknown quantization type: {quant_type}")
     
@@ -55,10 +55,7 @@ class QuantizationModule(pl.LightningModule):
         """Apply dynamic quantization"""
         quantized_model = torch.ao.quantization.quantize_dynamic(
             model,
-            {
-                nn.Linear,
-                nn.Conv2d
-            },
+            set([getattr(nn, layer) for layer in self.quantization_config["layers"]]),
             dtype={
                 8: torch.qint8,
                 16: torch.float16
@@ -90,33 +87,33 @@ class QuantizationModule(pl.LightningModule):
     #     # Implement calibration with sample data
     #     pass
     
-    def _apply_qat(self, model: nn.Module, method: Dict) -> nn.Module:
+    def _apply_qat(self) -> nn.Module:
         """Apply Quantization-Aware Training"""
         # Prepare model for QAT
-        model.train()
-        model.fuse_model()
-        model.qconfig = torch.quantization.get_default_qat_qconfig('fbgemm')
+        # model.eval()
+        # model.fuse_model(is_qat=True)
+        self.model.qconfig = torch.ao.quantization.get_default_qat_qconfig('x86')
         
         # Prepare for QAT
-        prepared_model = torch.quantization.prepare_qat(model)
+        torch.ao.quantization.prepare_qat(self.model, inplace=True)
+
+        # # Fine-tune with quantization aware training
+        # optimizer = self._create_optimizer(prepared_model)
+        # self._train_model(prepared_model, optimizer, self.quantization_config.get('qat_epochs', 5))
         
-        # Fine-tune with quantization aware training
-        optimizer = self._create_optimizer(prepared_model)
-        self._train_model(prepared_model, optimizer, method.get('qat_epochs', 5))
-        
-        # Convert to quantized model
-        quantized_model = torch.quantization.convert(prepared_model.eval())
-        return quantized_model
+        # # Convert to quantized model
+        # quantized_model = torch.quantization.convert(prepared_model.eval())
+        # return quantized_model
         
     def forward(self, x):
         return self.model(x)
     
     def configure_optimizers(self):
-        optim = getattr(torch.optim, self.pruning_config["optimizer"]["name"])
-        scheduler = getattr(torch.optim.lr_scheduler, self.pruning_config["scheduler"]["name"])
+        optim = getattr(torch.optim, self.quantization_config["optimizer"]["name"])
+        scheduler = getattr(torch.optim.lr_scheduler, self.quantization_config["scheduler"]["name"])
 
-        optim = optim(self.parameters(), **self.pruning_config["optimizer"]["params"])
-        scheduler = scheduler(optim, **{key: eval(val) if "lambda" in key else val for key, val in self.pruning_config["scheduler"]["params"].items()})
+        optim = optim(self.parameters(), **self.quantization_config["optimizer"]["params"])
+        scheduler = scheduler(optim, **{key: eval(val) if "lambda" in key else val for key, val in self.quantization_config["scheduler"]["params"].items()})
 
         return [optim], [scheduler]
 
@@ -128,6 +125,9 @@ class QuantizationModule(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
+        # Convert to quantized model to evaluate
+        quantized_model = torch.ao.quantization.convert(self.model.eval(), inplace=False)
+        quantized_model.eval()
         x, y = batch
         y_hat = self(x)
         loss = nn.functional.cross_entropy(y_hat, y)
