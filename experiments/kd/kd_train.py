@@ -45,21 +45,13 @@ if __name__ == '__main__':
         # state_dict = {k.replace('model.', "", 1): v for k, v in ckpt.items() if k.startswith('model')}
         # teacher_model.load_state_dict(state_dict)
 
-        teacher_model = KDModule.load_from_checkpoint(config["model"]['teacher']["params"]['from_path'], map_location='cpu', strict=False,
-                                                        student=NetModel({'num_classes': 10}),
-                                                        teacher=ResNet50Model({'num_classes': 10}),
-                                                        alpha_loss=0.5,
-                                                        temperature=1).teacher
+        teacher_model = BaseModule.load_from_checkpoint(config["model"]['teacher']["params"]['from_path'], map_location='cpu', strict=False).model
 
 
     student_model_def = globals()[config["model"]['student']["name_class"]]
     student_model = student_model_def(config["model"]['student']["params"])
     if 'from_path' in config['model']['student']['params']:
-        student_model = KDModule.load_from_checkpoint(config["model"]['student']["params"]['from_path'], map_location='cpu', strict=False,
-                                                student=NetModel({'num_classes': 10}),
-                                                teacher=ResNet50Model({'num_classes': 10}),
-                                                alpha_loss=0.5,
-                                                temperature=1).student
+        student_model = BaseModule.load_from_checkpoint(config["model"]['student']["params"]['from_path'], map_location='cpu', strict=False).model
 
     my_class_optimization = globals()[config["optimization"]["name_class"]]
     optimization = my_class_optimization(config["optimization"])

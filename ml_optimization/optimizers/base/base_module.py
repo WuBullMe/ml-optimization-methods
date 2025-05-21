@@ -7,6 +7,8 @@ from sklearn.metrics import recall_score, precision_score, f1_score
 class BaseModule(pl.LightningModule):
     def __init__(self, model, optimizer=None, scheduler=None):
         super().__init__()
+        self.save_hyperparameters()
+
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler

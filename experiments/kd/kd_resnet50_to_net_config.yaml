@@ -1,15 +1,27 @@
 # Model configuration
 model:
-  name_class: "ResNet50Model"
-  model_name: "resnet_model"
-  params:
-    pretrained: True
-    num_classes: 10
+  teacher:
+    name_class: "ResNet50Model"
+    model_name: "resnet50"
+    params:
+      from_path: "/home/ml-optimization-methods/experiments/base/logs/resnet50_cifar10_base_optimizer/1/checkpoints/best-23-0.18.ckpt"
+      num_classes: 10
+      clf_layer_name: 'fc'
+
+  student:
+    name_class: "NetModel"
+    model_name: "NetModel"
+    params:
+      num_classes: 10
+      from_path: "/home/ml-optimization-methods/experiments/base/logs/net_model_cifar10_base_optimizer/1/checkpoints/best-8-1.11.ckpt"
 
 # Optimization techniques
 optimization:
-  name_class: "BaseOptimization"
-  BaseModule: 
+  name_class: "KDOptimization"
+  KDModule: 
+    alpha_loss: 0.5
+    temperature: 1
+
     optimizer:
       name: "Adam"
       params:
@@ -49,7 +61,7 @@ optimization:
     logger: "TensorBoard"
     params:
       save_dir: "./logs"
-      name: "resnet50_cifar10_base_optimizer"
+      name: "kd_resnet_and_net_model_cifar10"
       version: "1"
       default_hp_metric: true
 
@@ -68,7 +80,7 @@ dataset:
     root: "./data"
     split: "train"
     download: True
-    batch_size: 256
+    batch_size: 128
     num_workers: 12
     pin_memory: False
     transforms:
@@ -87,7 +99,7 @@ dataset:
     root: "./data"
     split: "val"
     download: True
-    batch_size: 256
+    batch_size: 128
     num_workers: 12
     pin_memory: True
     transforms:

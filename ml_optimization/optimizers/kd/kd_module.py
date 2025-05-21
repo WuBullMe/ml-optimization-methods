@@ -18,6 +18,7 @@ class KDModule(pl.LightningModule):
         self.validation_data = []
 
         # Freeze teacher parameters
+        self.teacher.eval()
         for param in self.teacher.parameters():
             param.requires_grad = False
 

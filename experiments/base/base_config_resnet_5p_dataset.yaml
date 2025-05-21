@@ -1,10 +1,10 @@
 # Model configuration
 model:
-  name_class: "NetModel"
-  model_name: "netmodel"
+  name_class: "ResNet50Model"
+  model_name: "resnet_model"
   params:
     pretrained: True
-    output_dim: 10
+    num_classes: 10
 
 # Optimization techniques
 optimization:
@@ -21,7 +21,7 @@ optimization:
         lr_lambda: "lambda epoch: 0.95 ** epoch"
     
   train:
-    max_epochs: 10
+    max_epochs: 50
 
   
   callbacks:
@@ -49,14 +49,14 @@ optimization:
     logger: "TensorBoard"
     params:
       save_dir: "./logs"
-      name: "net_model_cifar10_base_optimizer"
+      name: "resnet50_cifar10_5p_dataset_base_optimizer"
       version: "1"
       default_hp_metric: true
 
     log_every_n_steps: 1
   
   hardware:
-    accelerator: "cpu"
+    accelerator: "gpu"
     devices: 1
     strategy: "auto"
     benchmark: true
@@ -68,9 +68,10 @@ dataset:
     root: "./data"
     split: "train"
     download: True
-    batch_size: 128
-    num_workers: 4
-    size: 1000
+    batch_size: 256
+    num_workers: 12
+    pin_memory: False
+    size: 0.05
     transforms:
       train:
         Resize:
@@ -87,10 +88,9 @@ dataset:
     root: "./data"
     split: "val"
     download: True
-    batch_size: 128
-    num_workers: 4
+    batch_size: 256
+    num_workers: 12
     pin_memory: True
-    size: 100
     transforms:
       val:
         Resize:
