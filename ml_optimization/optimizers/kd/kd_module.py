@@ -77,8 +77,8 @@ class KDModule(pl.LightningModule):
         return losses
     
     def on_validation_epoch_end(self):
-        model_logits = torch.stack([x[0] for x in self.validation_data])[0].cpu()
-        model_targets = torch.stack([x[1] for x in self.validation_data])[0].cpu()
+        model_logits = torch.cat([x[0] for x in self.validation_data]).cpu()
+        model_targets = torch.cat([x[1] for x in self.validation_data]).cpu()
 
         metrics = {
             'val_accuracy': (model_logits == model_targets).float().mean().item(),
