@@ -1,7 +1,7 @@
 import argparse
 import sys
 from pathlib import Path
-
+import torch
 import yaml
 from yaml import SafeLoader
 
@@ -23,7 +23,7 @@ def get_loader():
     return loader
 
 if __name__ == '__main__':
-    
+    torch.set_float32_matmul_precision('medium')
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', dest='config_path', type=str, help='path to yaml file')
     args = parser.parse_args()

@@ -13,7 +13,6 @@ model:
     model_name: "NetModel"
     params:
       num_classes: 10
-      from_path: "/home/ml-optimization-methods/experiments/base/logs/net_model_cifar10_base_optimizer/1/checkpoints/best-8-1.11.ckpt"
 
 # Optimization techniques
 optimization:

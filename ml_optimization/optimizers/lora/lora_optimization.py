@@ -38,6 +38,10 @@ class LoROptimization(torch.nn.Module):
     def fit(self, model, dataloaders):
         # Create a copy of the model
         model = copy.deepcopy(model)
+
+        # freeze all model params
+        for param in model.parameters():
+            param.requires_grad = False
         
         # Apply LoRA to all Linear layers
         self._apply_lora(model, self.config['rank'])

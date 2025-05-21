@@ -9,11 +9,7 @@ class LoRALayer(torch.nn.Module):
         super().__init__()
         self.original_layer = original_layer
         self.rank = rank
-        
-        # Freeze original parameters
-        for param in original_layer.parameters():
-            param.requires_grad = False
-            
+
         # Add low-rank parameters
         in_features = original_layer.in_features
         out_features = original_layer.out_features

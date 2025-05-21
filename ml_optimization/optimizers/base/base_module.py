@@ -39,8 +39,8 @@ class BaseModule(pl.LightningModule):
         model_logits = torch.cat([x[0] for x in self.validation_data]).cpu()
         model_targets = torch.cat([x[1] for x in self.validation_data]).cpu()
 
+        accuracy = (model_logits == model_targets).float().mean().item()
         metrics = {
-            'val_accuracy': (model_logits == model_targets).float().mean().item(),
             'val_recall_micro': recall_score(model_targets, model_logits, average='micro', zero_division=0),
             'val_recall_macro': recall_score(model_targets, model_logits, average='macro', zero_division=0),
             'val_recall_weighted': recall_score(model_targets, model_logits, average='weighted', zero_division=0),
@@ -53,8 +53,11 @@ class BaseModule(pl.LightningModule):
             'val_f1_macro': f1_score(model_targets, model_logits, average='macro', zero_division=0),
             'val_f1_weighted': f1_score(model_targets, model_logits, average='weighted', zero_division=0),
         }
+        self.log('val_accuracy', accuracy, prog_bar=True)
         self.log_dict(metrics)
         self.validation_data.clear()
+
+        metrics.update({'val_accuracy': accuracy})
         return metrics
 
 
