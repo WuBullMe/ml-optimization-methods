@@ -32,6 +32,8 @@ class PruningModule(pl.LightningModule):
             scheduler: Scheduler for optimizer and its params
         """
         super().__init__()
+        self.save_hyperparameters()
+
         self.model = copy.deepcopy(model)
         self.pruning_config = {
             "method": pruning_method,

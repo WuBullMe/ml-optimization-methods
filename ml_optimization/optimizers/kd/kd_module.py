@@ -7,6 +7,8 @@ from sklearn.metrics import recall_score, precision_score, f1_score
 class KDModule(pl.LightningModule):
     def __init__(self, student, teacher, alpha_loss, temperature, optimizer=None, scheduler=None):
         super().__init__()
+        self.save_hyperparameters()
+
         self.student = student
         self.teacher = teacher
         self.alpha_loss = alpha_loss
@@ -18,6 +20,9 @@ class KDModule(pl.LightningModule):
         # Freeze teacher parameters
         for param in self.teacher.parameters():
             param.requires_grad = False
+
+    def forward(self, x):
+        return self.student(x)
 
     def training_step(self, batch, batch_idx):
         x, y = batch

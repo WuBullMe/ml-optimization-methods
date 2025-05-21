@@ -30,6 +30,8 @@ class LoRALayer(torch.nn.Module):
 class LoRAModule(pl.LightningModule):
     def __init__(self, model, optimizer=None, scheduler=None):
         super().__init__()
+        self.save_hyperparameters()
+
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
@@ -37,6 +39,9 @@ class LoRAModule(pl.LightningModule):
 
         self.loss = nn.CrossEntropyLoss()
     
+    def forward(self, x):
+        return self.model(x)
+
     def training_step(self, batch, batch_idx):
         x, y = batch
         
