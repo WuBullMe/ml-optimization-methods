@@ -29,21 +29,22 @@ def measure_flops(model, input):
         'params': params
     }
 
-MODEL_PATH = ''
+MODEL_PATH = './logs/prune_unstructed_global_netmodel_cifar10/2/checkpoints/last.ckpt'
 
 batch_size = [1, 32, 64, 128, 256]
-device = ['cpu', 'cuda']
+device = ['cpu']
 
 model = BaseModule.load_from_checkpoint(MODEL_PATH, map_location='cpu', strict=False).model
+model.eval()
 
 results = []
 
 for bs in batch_size:
     for dev in device:
-        input = torch.rand(bs, 3, 24, 24, device=dev)
+        input = torch.rand(bs, 3, 224, 224, device=dev)
         model.to(dev)
 
-        res = f'batch_size={bs}, device={dev}, latency={measure_time(model, input):.2f}ms, flops={measure_flops(model, input):.2f}'
+        res = f"batch_size={bs}, device={dev}, latency={measure_time(model, input)['latency']:.2f}ms, flops={measure_flops(model, input)['flops']:.2f}, params={measure_flops(model, input)['params']}"
         print(res)
         results.append(res)
 
