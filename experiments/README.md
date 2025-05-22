@@ -15,14 +15,20 @@ resnet (full train) - 0.955
 resnet (5% dataset) - 0.88
 
 netmodel (full train) - 0.826
-netmodel (5% train) - 0.58
 
 kd resnet->netmodel (full train, 0.5/0.5 loss) - 0.828
 kd resnet->netmodel (full train, 0.3/0.7 loss) - 0.834
 kd resnet->netmodel (full train, 0.3/0.7 loss, logit_std) - 0.8481
 
+partialy training (proof that with kd model converges faster) -
+netmodel (5% dataset, one epoch) -  0.2129
+kd resnet->netmodel (5% dataset, one epoch) - 0.269
+
+netmodel (10% dataset, one epoch) - 0.3277
+kd resnet->netmodel (10% dataset, one epoch) - 0.3746
+
 profit:
 - vanila kd + 0.8%
 - logit_std kd +2.21%
-- faster convergence
+- faster convergence (at least +5%, with same number of iterations) - good if the dataset is not large
 ```
