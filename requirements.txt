@@ -13,3 +13,4 @@ pyyaml
 pytorch-lightning
 tensorboard
 standard-imghdr
+thop
