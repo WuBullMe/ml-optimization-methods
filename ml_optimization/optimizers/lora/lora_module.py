@@ -1,3 +1,4 @@
+import math
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
@@ -14,7 +15,9 @@ class LoRALayer(torch.nn.Module):
         in_features = original_layer.in_features
         out_features = original_layer.out_features
         
-        self.A = torch.nn.Parameter(torch.randn(in_features, rank))
+        self.A = torch.nn.Parameter(torch.zeros(in_features, rank))
+        nn.init.kaiming_uniform_(self.A, a=math.sqrt(5))
+
         self.B = torch.nn.Parameter(torch.zeros(rank, out_features))
         
     def forward(self, x):
@@ -62,8 +65,8 @@ class LoRAModule(pl.LightningModule):
         model_logits = torch.cat([x[0] for x in self.validation_data]).cpu()
         model_targets = torch.cat([x[1] for x in self.validation_data]).cpu()
 
+        accuracy = (model_logits == model_targets).float().mean().item()
         metrics = {
-            'val_accuracy': (model_logits == model_targets).float().mean().item(),
             'val_recall_micro': recall_score(model_targets, model_logits, average='micro', zero_division=0),
             'val_recall_macro': recall_score(model_targets, model_logits, average='macro', zero_division=0),
             'val_recall_weighted': recall_score(model_targets, model_logits, average='weighted', zero_division=0),
@@ -76,8 +79,11 @@ class LoRAModule(pl.LightningModule):
             'val_f1_macro': f1_score(model_targets, model_logits, average='macro', zero_division=0),
             'val_f1_weighted': f1_score(model_targets, model_logits, average='weighted', zero_division=0),
         }
+        self.log('val_accuracy', accuracy, prog_bar=True)
         self.log_dict(metrics)
         self.validation_data.clear()
+
+        metrics.update({'val_accuracy': accuracy})
         return metrics
 
     def configure_optimizers(self):

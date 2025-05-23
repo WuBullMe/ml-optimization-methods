@@ -1,17 +1,15 @@
 # Model configuration
 model:
-  name_class: "ResNet50Model"
-  model_name: "resnet50"
+  name_class: "NetModel"
+  model_name: "netmodel"
   params:
     pretrained: True
     num_classes: 10
-    from_path: "/home/ml-optimization-methods/experiments/ogs/resnet50_cifar10_base_optimizer/1/checkpoints/best-13-0.19.ckpt"
 
 # Optimization techniques
 optimization:
-  name_class: "LoROptimization"
-  rank: 8
-  LoRAModule: 
+  name_class: "BaseOptimization"
+  BaseModule: 
     optimizer:
       name: "Adam"
       params:
@@ -25,13 +23,13 @@ optimization:
   train:
     max_epochs: 50
 
-
+  
   callbacks:
     - class: "ModelCheckpoint"
       params:
         monitor: "val_loss"
         mode: "min"
-        save_top_k: 1
+        save_top_k: 3
         filename: "best-{epoch}-{val_loss:.2f}"
         auto_insert_metric_name: false
         save_last: true
@@ -50,28 +48,29 @@ optimization:
   logging:
     logger: "TensorBoard"
     params:
-      save_dir: "/logs"
-      name: "lora_resnet_model_cifar10"
-      version: "2"
-      default_hp_metric: false
+      save_dir: "./logs"
+      name: "net_model_cifar10_base_optimizer"
+      version: "1"
+      default_hp_metric: true
 
     log_every_n_steps: 1
   
   hardware:
-    accelerator: "gpu"
+    accelerator: "cpu"
     devices: 1
     strategy: "auto"
     benchmark: true
 
 # Data configuration
 dataset:
-  - name_class: "Cifar10DataLoader"
-    name: "CIFAR10"
-    root: "/data"
+  - name_class: "STL10DataLoader"
+    name: "STL10"
+    root: "./data"
     split: "train"
     download: True
-    batch_size: 256
-    num_workers: 12
+    batch_size: 32
+    num_workers: 4
+    pin_memory: False
     transforms:
       train:
         Resize:
@@ -83,13 +82,13 @@ dataset:
           mean: [0.4914, 0.4822, 0.4465]
           std: [0.2023, 0.1994, 0.2010]
 
-  - name_class: "Cifar10DataLoader"
-    name: "CIFAR10"
-    root: "/data"
-    split: "val"
+  - name_class: "STL10DataLoader"
+    name: "STL10"
+    root: "./data"
+    split: "test"
     download: True
-    batch_size: 256
-    num_workers: 12
+    batch_size: 32
+    num_workers: 4
     pin_memory: True
     transforms:
       val:

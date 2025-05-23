@@ -35,6 +35,9 @@ if __name__ == '__main__':
 
     my_class_model = globals()[config["model"]["name_class"]]
     model = my_class_model(config["model"]["params"])
+
+    if 'from_path' in config['model']['params']:
+        model = BaseModule.load_from_checkpoint(config["model"]["params"]['from_path'], map_location='cpu', strict=False).model
     
 
     dataloaders = {}
