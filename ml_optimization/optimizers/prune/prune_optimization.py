@@ -1,9 +1,10 @@
 import pytorch_lightning as pl
 import torch.nn as nn
+import torch
 
-from .prune_module import PruningModule
+from .quantization_module import QuantizationModule
 
-class PruneOptimization(nn.Module):
+class QuantizationOptimization(nn.Module):
     def __init__(self, config):
         self.config = config
 
@@ -29,25 +30,14 @@ class PruneOptimization(nn.Module):
             master_model, 
             dataloaders
             ):
-        
-        # pruner = PruningModule(
-        #     model=master_model,
-        #     pruning_method=self.config["prune"]["prune_type"],
-        #     amount=self.config["prune"]["total_amount"] / (self.config["prune"]["max_epochs"] / self.config["prune"]["prune_every_n_epochs"]),
-        #     layers_to_prune=self.config["prune"]["layers"],
-        #     global_pruning=self.config["prune"]["global_pruning"],
-        #     prune_every_n_epochs=self.config["prune"]["prune_every_n_epochs"],
-        #     optimizer=self.config["optimizer"],
-        #     scheduler=self.config["scheduler"]
-        # )
 
-        pruner = PruningModule(
+        quantization = QuantizationModule(
             model=master_model,
-            **self.config["PruningModule"]
+            **self.config["QuantizationModule"]
         )
 
         trainer = pl.Trainer(
             **self.setup_training
         )
 
-        trainer.fit(pruner, dataloaders["train"], dataloaders["val"])
+        trainer.fit(quantization, dataloaders["train"], dataloaders["val"])

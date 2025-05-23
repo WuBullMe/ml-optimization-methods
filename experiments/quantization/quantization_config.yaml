@@ -1,7 +1,8 @@
 # Model configuration
 model:
-  name_class: "NetModel"
-  params: {}
+  name_class: "ResNet18Model"
+  params:
+    num_classes: 10
 
 # Optimization techniques
 optimization:
@@ -24,6 +25,8 @@ optimization:
       name: "LambdaLR"
       params:
         lr_lambda: "lambda epoch: 0.95 ** epoch"
+
+    loss: "cross_entropy"
     
   train:
     max_epochs: 10
@@ -54,7 +57,7 @@ optimization:
     logger: "TensorBoard"
     params:
       save_dir: "./logs"
-      name: "quantization_netmodel_cifar10"
+      name: "quantization_resnet18_cifar10_test"
       version: "1"
       default_hp_metric: false
 
