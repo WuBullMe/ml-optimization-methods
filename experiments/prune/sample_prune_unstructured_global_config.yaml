@@ -1,7 +1,8 @@
 # Model configuration
 model:
   name_class: "NetModel"
-  params: {}
+  params:
+    num_classes: 10
 
 # Optimization techniques
 optimization:
@@ -22,10 +23,11 @@ optimization:
       name: "LambdaLR"
       params:
         lr_lambda: "lambda epoch: 0.95 ** epoch"
+
+    loss: "cross_entropy"
     
   train:
     max_epochs: 10
-
   
   callbacks:
     - class: "ModelCheckpoint"
@@ -52,14 +54,14 @@ optimization:
     logger: "TensorBoard"
     params:
       save_dir: "./logs"
-      name: "prune_netmodel_cifar10"
-      version: "1"
+      name: "prune_unstructed_global_netmodel_cifar10"
+      version: "4"
       default_hp_metric: false
 
-    log_every_n_steps: 1
+    log_every_n_steps: 5
   
   hardware:
-    accelerator: "cpu"
+    accelerator: "gpu"
     devices: 1
     strategy: "auto"
     benchmark: true
@@ -73,7 +75,6 @@ dataset:
     download: True
     batch_size: 128
     num_workers: 4
-    size: 1000
     transforms:
       train:
         Resize:
@@ -93,7 +94,6 @@ dataset:
     batch_size: 128
     num_workers: 4
     pin_memory: True
-    size: 100
     transforms:
       val:
         Resize:
