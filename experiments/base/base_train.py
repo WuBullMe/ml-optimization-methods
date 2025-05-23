@@ -32,19 +32,17 @@ if __name__ == '__main__':
     with open(config_path, 'r') as f:
         config = yaml.load(f, Loader=get_loader())
 
-
-    my_class_model = globals()[config["model"]["name_class"]]
-    model = my_class_model(config["model"]["params"])
+    model_def = globals()[config["model"]["name_class"]]
+    model = model_def(config["model"]["params"])
 
     if 'from_path' in config['model']['params']:
         model = BaseModule.load_from_checkpoint(config["model"]["params"]['from_path'], map_location='cpu', strict=False).model
     
-
     dataloaders = {}
     for dataset in config["dataset"]:
         my_class_dataloader = globals()[dataset["name_class"]]
         dataloaders[dataset["split"]] = my_class_dataloader(dataset).get_dataloader()
-    
+
     my_class_optimization = globals()[config["optimization"]["name_class"]]
     optimization = my_class_optimization(config["optimization"])
 

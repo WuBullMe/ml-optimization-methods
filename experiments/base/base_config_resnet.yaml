@@ -1,18 +1,15 @@
 # Model configuration
 model:
-  name_class: "NetModel"
-  params: {}
+  name_class: "ResNet50Model"
+  model_name: "resnet_model"
+  params:
+    pretrained: True
+    num_classes: 10
 
 # Optimization techniques
 optimization:
-  name_class: "PruneOptimization"
-  PruningModule: 
-    layers_to_prune: ["Conv2d", "Linear"]
-    pruning_method: l1_unstructured
-    global_pruning: False
-    amount: 0.03
-    prune_every_n_epochs: 2
-
+  name_class: "BaseOptimization"
+  BaseModule: 
     optimizer:
       name: "Adam"
       params:
@@ -24,7 +21,7 @@ optimization:
         lr_lambda: "lambda epoch: 0.95 ** epoch"
     
   train:
-    max_epochs: 10
+    max_epochs: 50
 
   
   callbacks:
@@ -52,14 +49,14 @@ optimization:
     logger: "TensorBoard"
     params:
       save_dir: "./logs"
-      name: "prune_netmodel_cifar10"
+      name: "resnet50_cifar10_base_optimizer"
       version: "1"
-      default_hp_metric: false
+      default_hp_metric: true
 
     log_every_n_steps: 1
   
   hardware:
-    accelerator: "cpu"
+    accelerator: "gpu"
     devices: 1
     strategy: "auto"
     benchmark: true
@@ -71,9 +68,9 @@ dataset:
     root: "./data"
     split: "train"
     download: True
-    batch_size: 128
-    num_workers: 4
-    size: 1000
+    batch_size: 256
+    num_workers: 12
+    pin_memory: False
     transforms:
       train:
         Resize:
@@ -90,10 +87,9 @@ dataset:
     root: "./data"
     split: "val"
     download: True
-    batch_size: 128
-    num_workers: 4
+    batch_size: 256
+    num_workers: 12
     pin_memory: True
-    size: 100
     transforms:
       val:
         Resize:

@@ -1,32 +1,10 @@
-import math
 import torch
-import torch.nn as nn
+from torch import nn
 import pytorch_lightning as pl
 from sklearn.metrics import recall_score, precision_score, f1_score
 
-# LoRA Layer Implementation
-class LoRALayer(torch.nn.Module):
-    def __init__(self, original_layer, rank):
-        super().__init__()
-        self.original_layer = original_layer
-        self.rank = rank
-
-        # Add low-rank parameters
-        in_features = original_layer.in_features
-        out_features = original_layer.out_features
-        
-        self.A = torch.nn.Parameter(torch.zeros(in_features, rank))
-        nn.init.kaiming_uniform_(self.A, a=math.sqrt(5))
-
-        self.B = torch.nn.Parameter(torch.zeros(rank, out_features))
-        
-    def forward(self, x):
-        original_output = self.original_layer(x)
-        lora_output = x @ self.A @ self.B
-        return original_output + lora_output
-
-
-class LoRAModule(pl.LightningModule):
+# Base Lightning Module
+class BaseModule(pl.LightningModule):
     def __init__(self, model, optimizer=None, scheduler=None):
         super().__init__()
         self.save_hyperparameters()
@@ -34,30 +12,26 @@ class LoRAModule(pl.LightningModule):
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
-        self.validation_data = []
 
-        self.loss = nn.CrossEntropyLoss()
-    
-    def forward(self, x):
-        return self.model(x)
+        self.validation_data = []
 
     def training_step(self, batch, batch_idx):
         x, y = batch
         
-        outputs = self.model(x)
-        loss = self.loss(outputs, y)
+        model_logits = self.model(x)
+        loss = nn.functional.cross_entropy(model_logits, y)
 
         self.log('train_loss', loss, prog_bar=True)
         return loss
-    
+
     def validation_step(self, batch, batch_idx):
         x, y = batch
         
-        outputs = self.model(x)
-        loss = self.loss(outputs, y)
+        model_logits = self.model(x)
 
-        self.validation_data.append((torch.argmax(outputs, -1), y))
+        self.validation_data.append((torch.argmax(model_logits, -1), y))
 
+        loss = nn.functional.cross_entropy(model_logits, y)
         self.log('val_loss', loss)
         return loss
     
@@ -86,20 +60,15 @@ class LoRAModule(pl.LightningModule):
         metrics.update({'val_accuracy': accuracy})
         return metrics
 
-    def configure_optimizers(self):
-        # Setup optimizer (only train LoRA parameters)
-        lora_params = []
-        for m in self.model.modules():
-            if isinstance(m, LoRALayer):
-                lora_params += [m.A, m.B]
 
+    def configure_optimizers(self):
         optim = getattr(torch.optim, self.optimizer["name"])
-        optim = optim(lora_params, **self.optimizer["params"])
+        optim = optim(self.model.parameters(), **self.optimizer["params"])
 
         if self.scheduler is not None:
             scheduler = getattr(torch.optim.lr_scheduler, self.scheduler["name"])
             scheduler = scheduler(optim, **{key: eval(val) if "lambda" in key else val for key, val in self.scheduler["params"].items()})
 
             return [optim], [scheduler]
-
+        
         return optim

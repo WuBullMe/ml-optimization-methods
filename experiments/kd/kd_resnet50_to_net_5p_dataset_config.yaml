@@ -4,7 +4,7 @@ model:
     name_class: "ResNet50Model"
     model_name: "resnet50"
     params:
-      from_path: "C:/Users/sadit/Desktop/diplom/ml-optimization-methods/experiments/base/logs/resnet50_cifar10_base_optimizer/1/checkpoints/best-21-0.19.ckpt"
+      from_path: "/home/ml-optimization-methods/experiments/base/logs/resnet50_cifar10_base_optimizer/1/checkpoints/best-23-0.18.ckpt"
       num_classes: 10
       clf_layer_name: 'fc'
 
@@ -13,7 +13,6 @@ model:
     model_name: "NetModel"
     params:
       num_classes: 10
-      from_path: "C:/Users/sadit/Desktop/diplom/ml-optimization-methods/experiments/base/logs/net_model_cifar10_base_optimizer/1/checkpoints/best-6-1.04.ckpt"
 
 # Optimization techniques
 optimization:
@@ -33,7 +32,7 @@ optimization:
         lr_lambda: "lambda epoch: 0.95 ** epoch"
     
   train:
-    max_epochs: 10
+    max_epochs: 50
 
   
   callbacks:
@@ -61,14 +60,14 @@ optimization:
     logger: "TensorBoard"
     params:
       save_dir: "./logs"
-      name: "kd_resnet_and_net_model_cifar10"
-      version: "100"
+      name: "kd_resnet_and_net_model_cifar10_5p_dataset"
+      version: "1"
       default_hp_metric: true
 
     log_every_n_steps: 1
   
   hardware:
-    accelerator: "cpu"
+    accelerator: "gpu"
     devices: 1
     strategy: "auto"
     benchmark: true
@@ -81,8 +80,9 @@ dataset:
     split: "train"
     download: True
     batch_size: 128
-    num_workers: 4
-    size: 1000
+    num_workers: 12
+    pin_memory: False
+    size: 0.05
     transforms:
       train:
         Resize:
@@ -100,9 +100,8 @@ dataset:
     split: "val"
     download: True
     batch_size: 128
-    num_workers: 4
+    num_workers: 12
     pin_memory: True
-    size: 100
     transforms:
       val:
         Resize:

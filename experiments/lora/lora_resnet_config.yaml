@@ -1,27 +1,17 @@
 # Model configuration
 model:
-  teacher:
-    name_class: "ResNet50Model"
-    model_name: "resnet50"
-    params:
-      from_path: "C:/Users/sadit/Desktop/diplom/ml-optimization-methods/experiments/base/logs/resnet50_cifar10_base_optimizer/1/checkpoints/best-21-0.19.ckpt"
-      num_classes: 10
-      clf_layer_name: 'fc'
-
-  student:
-    name_class: "NetModel"
-    model_name: "NetModel"
-    params:
-      num_classes: 10
-      from_path: "C:/Users/sadit/Desktop/diplom/ml-optimization-methods/experiments/base/logs/net_model_cifar10_base_optimizer/1/checkpoints/best-6-1.04.ckpt"
+  name_class: "ResNet50Model"
+  model_name: "resnet50"
+  params:
+    pretrained: True
+    num_classes: 10
+    from_path: "/home/ml-optimization-methods/experiments/ogs/resnet50_cifar10_base_optimizer/1/checkpoints/best-13-0.19.ckpt"
 
 # Optimization techniques
 optimization:
-  name_class: "KDOptimization"
-  KDModule: 
-    alpha_loss: 0.5
-    temperature: 1
-
+  name_class: "LoROptimization"
+  rank: 8
+  LoRAModule: 
     optimizer:
       name: "Adam"
       params:
@@ -33,15 +23,15 @@ optimization:
         lr_lambda: "lambda epoch: 0.95 ** epoch"
     
   train:
-    max_epochs: 10
+    max_epochs: 50
 
-  
+
   callbacks:
     - class: "ModelCheckpoint"
       params:
         monitor: "val_loss"
         mode: "min"
-        save_top_k: 3
+        save_top_k: 1
         filename: "best-{epoch}-{val_loss:.2f}"
         auto_insert_metric_name: false
         save_last: true
@@ -60,15 +50,15 @@ optimization:
   logging:
     logger: "TensorBoard"
     params:
-      save_dir: "./logs"
-      name: "kd_resnet_and_net_model_cifar10"
-      version: "100"
-      default_hp_metric: true
+      save_dir: "/logs"
+      name: "lora_resnet_model_cifar10"
+      version: "2"
+      default_hp_metric: false
 
     log_every_n_steps: 1
   
   hardware:
-    accelerator: "cpu"
+    accelerator: "gpu"
     devices: 1
     strategy: "auto"
     benchmark: true
@@ -77,12 +67,11 @@ optimization:
 dataset:
   - name_class: "Cifar10DataLoader"
     name: "CIFAR10"
-    root: "./data"
+    root: "/data"
     split: "train"
     download: True
-    batch_size: 128
-    num_workers: 4
-    size: 1000
+    batch_size: 256
+    num_workers: 12
     transforms:
       train:
         Resize:
@@ -96,13 +85,12 @@ dataset:
 
   - name_class: "Cifar10DataLoader"
     name: "CIFAR10"
-    root: "./data"
+    root: "/data"
     split: "val"
     download: True
-    batch_size: 128
-    num_workers: 4
+    batch_size: 256
+    num_workers: 12
     pin_memory: True
-    size: 100
     transforms:
       val:
         Resize:

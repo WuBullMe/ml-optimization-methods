@@ -1,27 +1,15 @@
 # Model configuration
 model:
-  teacher:
-    name_class: "ResNet50Model"
-    model_name: "resnet50"
-    params:
-      from_path: "C:/Users/sadit/Desktop/diplom/ml-optimization-methods/experiments/base/logs/resnet50_cifar10_base_optimizer/1/checkpoints/best-21-0.19.ckpt"
-      num_classes: 10
-      clf_layer_name: 'fc'
-
-  student:
-    name_class: "NetModel"
-    model_name: "NetModel"
-    params:
-      num_classes: 10
-      from_path: "C:/Users/sadit/Desktop/diplom/ml-optimization-methods/experiments/base/logs/net_model_cifar10_base_optimizer/1/checkpoints/best-6-1.04.ckpt"
+  name_class: "NetModel"
+  model_name: "netmodel"
+  params:
+    pretrained: True
+    num_classes: 10
 
 # Optimization techniques
 optimization:
-  name_class: "KDOptimization"
-  KDModule: 
-    alpha_loss: 0.5
-    temperature: 1
-
+  name_class: "BaseOptimization"
+  BaseModule: 
     optimizer:
       name: "Adam"
       params:
@@ -33,7 +21,7 @@ optimization:
         lr_lambda: "lambda epoch: 0.95 ** epoch"
     
   train:
-    max_epochs: 10
+    max_epochs: 50
 
   
   callbacks:
@@ -61,8 +49,8 @@ optimization:
     logger: "TensorBoard"
     params:
       save_dir: "./logs"
-      name: "kd_resnet_and_net_model_cifar10"
-      version: "100"
+      name: "net_model_cifar10_base_optimizer"
+      version: "1"
       default_hp_metric: true
 
     log_every_n_steps: 1
@@ -75,14 +63,14 @@ optimization:
 
 # Data configuration
 dataset:
-  - name_class: "Cifar10DataLoader"
-    name: "CIFAR10"
+  - name_class: "STL10DataLoader"
+    name: "STL10"
     root: "./data"
     split: "train"
     download: True
-    batch_size: 128
+    batch_size: 32
     num_workers: 4
-    size: 1000
+    pin_memory: False
     transforms:
       train:
         Resize:
@@ -94,15 +82,14 @@ dataset:
           mean: [0.4914, 0.4822, 0.4465]
           std: [0.2023, 0.1994, 0.2010]
 
-  - name_class: "Cifar10DataLoader"
-    name: "CIFAR10"
+  - name_class: "STL10DataLoader"
+    name: "STL10"
     root: "./data"
-    split: "val"
+    split: "test"
     download: True
-    batch_size: 128
+    batch_size: 32
     num_workers: 4
     pin_memory: True
-    size: 100
     transforms:
       val:
         Resize:

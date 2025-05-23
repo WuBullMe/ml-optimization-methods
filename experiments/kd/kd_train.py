@@ -1,7 +1,7 @@
 import argparse
 import sys
 from pathlib import Path
-
+import torch
 import yaml
 from yaml import SafeLoader
 
@@ -23,7 +23,7 @@ def get_loader():
     return loader
 
 if __name__ == '__main__':
-
+    torch.set_float32_matmul_precision('medium')
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', dest='config_path', type=str, help='path to yaml file')
     args = parser.parse_args()
@@ -32,16 +32,26 @@ if __name__ == '__main__':
     with open(config_path, 'r') as f:
         config = yaml.load(f, Loader=get_loader())
 
-    teacher_model_def = globals()[config["model"]['teacher']["name_class"]]
-    teacher_model = teacher_model_def(config["model"]['teacher']["params"])
-
-    student_model_def = globals()[config["model"]['student']["name_class"]]
-    student_model = student_model_def(config["model"]['student']["params"])
-
     dataloaders = {}
     for dataset in config["dataset"]:
         my_class_dataloader = globals()[dataset["name_class"]]
         dataloaders[dataset["split"]] = my_class_dataloader(dataset).get_dataloader()
+
+    teacher_model_def = globals()[config["model"]['teacher']["name_class"]]
+    teacher_model = teacher_model_def(config["model"]['teacher']["params"])
+    if 'from_path' in config['model']['teacher']['params']:
+        # custom loading from lightning checkpoint to nn.Module
+        # ckpt = torch.load(config["model"]['teacher']["params"]['from_path'], map_location='cpu')['state_dict']
+        # state_dict = {k.replace('model.', "", 1): v for k, v in ckpt.items() if k.startswith('model')}
+        # teacher_model.load_state_dict(state_dict)
+
+        teacher_model = BaseModule.load_from_checkpoint(config["model"]['teacher']["params"]['from_path'], map_location='cpu', strict=False).model
+
+
+    student_model_def = globals()[config["model"]['student']["name_class"]]
+    student_model = student_model_def(config["model"]['student']["params"])
+    if 'from_path' in config['model']['student']['params']:
+        student_model = BaseModule.load_from_checkpoint(config["model"]['student']["params"]['from_path'], map_location='cpu', strict=False).model
 
     my_class_optimization = globals()[config["optimization"]["name_class"]]
     optimization = my_class_optimization(config["optimization"])

@@ -7,6 +7,7 @@ experiments/data
 # tensorboard logs
 experiments/logs
 logs
+lightning_logs
 
 *.pyc
 

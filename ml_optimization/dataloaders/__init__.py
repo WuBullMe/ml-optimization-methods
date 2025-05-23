@@ -1,1 +1,3 @@
 from .cifar10_dataloader import Cifar10DataLoader
+from .stl10_dataloader import STL10DataLoader
+from .fashion_mnist import FashionMNISTDataLoader

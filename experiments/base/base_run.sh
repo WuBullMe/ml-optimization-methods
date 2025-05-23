@@ -1,0 +1,1 @@
+python base_train.py --config_path base_config.yaml
