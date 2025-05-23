@@ -35,6 +35,9 @@ class BaseOptimization(nn.Module):
             **self.setup_training
         )
 
+        val_dataloader = dataloaders.get('val', None)
+        if val_dataloader is None:
+            dataloaders['val'] = dataloaders.get('test', None)
         trainer.fit(base_module, dataloaders["train"], dataloaders["val"])
 
         return model

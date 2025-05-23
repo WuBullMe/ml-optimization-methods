@@ -1,7 +1,7 @@
 # Model configuration
 model:
-  name_class: "NetModel"
-  model_name: "netmodel"
+  name_class: "ResNet50Model"
+  model_name: "resnet50"
   params:
     pretrained: True
     num_classes: 10
@@ -49,7 +49,7 @@ optimization:
     logger: "TensorBoard"
     params:
       save_dir: "/logs"
-      name: "net_model_stl10_lora_optimizer"
+      name: "resnet_stl10_base_optimizer"
       version: "1"
       default_hp_metric: true
 

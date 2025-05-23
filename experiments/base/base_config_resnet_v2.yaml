@@ -1,7 +1,7 @@
 # Model configuration
 model:
-  name_class: "NetModel"
-  model_name: "netmodel"
+  name_class: "ResNet50v2Model"
+  model_name: "resnet_v2_model"
   params:
     pretrained: True
     num_classes: 10
@@ -49,7 +49,7 @@ optimization:
     logger: "TensorBoard"
     params:
       save_dir: "/logs"
-      name: "net_model_stl10_lora_optimizer"
+      name: "resnet50_v2_cifar10_base_optimizer"
       version: "1"
       default_hp_metric: true
 
@@ -63,8 +63,8 @@ optimization:
 
 # Data configuration
 dataset:
-  - name_class: "STL10DataLoader"
-    name: "STL10"
+  - name_class: "Cifar10DataLoader"
+    name: "CIFAR10"
     root: "/data"
     split: "train"
     download: True
@@ -82,16 +82,16 @@ dataset:
           mean: [0.4914, 0.4822, 0.4465]
           std: [0.2023, 0.1994, 0.2010]
 
-  - name_class: "STL10DataLoader"
-    name: "STL10"
+  - name_class: "Cifar10DataLoader"
+    name: "CIFAR10"
     root: "/data"
-    split: "test"
+    split: "val"
     download: True
     batch_size: 256
     num_workers: 12
     pin_memory: True
     transforms:
-      test:
+      val:
         Resize:
           size: !!python/tuple [224, 224]
         ToTensor: {}

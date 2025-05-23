@@ -10,6 +10,9 @@
 # val accuracy
 ![alt text](results/val_accuracy.png)
 
+# val accuracy of lora
+![alt text](results/lora_results.png)
+
 ```
 resnet (full train) - 0.955
 resnet (5% dataset) - 0.88
@@ -31,4 +34,30 @@ profit:
 - vanila kd + 0.8%
 - logit_std kd +2.21%
 - faster convergence (at least +5%, with same number of iterations) - good if the dataset is not large
+```
+
+
+lora results:
+```
+
+resnet50 trained on cifar-10 - accuracy: 0.945, params=24.5M
+validate resnet50 on stl-50  - accuracy: 0.408
+
+fine-tune on stl-10 dataset  - accuracy: 0.88, params=24.5M
+lora resnet50 on stl-10      - accuracy: 0.814, trainable params=3.6k, rank=1
+lora resnet50 on stl-10      - accuracy: 0.851, trainable params=14.4k, rank=4
+lora resnet50 on stl-10      - accuracy: 0.864, trainable params=28.7k, rank=8
+lora resnet50 on stl-10      - accuracy: 0.872, trainable params=57.5k, rank=16
+lora resnet50 on stl-10      - accuracy: 0.885, trainable params=115k, rank=32
+lora resnet50 on stl-10      - accuracy: 0.892, trainable params=230k, rank=64
+lora resnet50 on stl-10      - accuracy: 0.894, trainable params=460k, rank=128
+
+fine-tune on stl-10 5% dataset     - accuracy: 0.656
+fine-tune on stl-10 10% dataset    - accuracy: 0.7613
+
+lora resnet50 on stl-10 5% dataset - accuracy: 0.819, rank=8
+lora resnet50 on stl-10 10% dataset - accuracy: 0.831, rank=8
+
+5% dataset = 250 images
+10% dataset = 500 images
 ```

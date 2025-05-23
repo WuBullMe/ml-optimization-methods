@@ -1,15 +1,17 @@
 # Model configuration
 model:
-  name_class: "NetModel"
-  model_name: "netmodel"
+  name_class: "ResNet50v2Model"
+  model_name: "resnet_v2_model"
   params:
     pretrained: True
     num_classes: 10
+    from_path: "/logs/resnet50_v2_cifar10_base_optimizer/1/checkpoints/best-8-0.20.ckpt"
 
 # Optimization techniques
 optimization:
-  name_class: "BaseOptimization"
-  BaseModule: 
+  name_class: "LoROptimization"
+  rank: 8
+  LoRAModule: 
     optimizer:
       name: "Adam"
       params:
@@ -21,7 +23,7 @@ optimization:
         lr_lambda: "lambda epoch: 0.95 ** epoch"
     
   train:
-    max_epochs: 50
+    max_epochs: 1
 
   
   callbacks:
@@ -49,7 +51,7 @@ optimization:
     logger: "TensorBoard"
     params:
       save_dir: "/logs"
-      name: "net_model_stl10_lora_optimizer"
+      name: "lora_resnet_v2_model_stl10_5p_one_epoch_rank_8"
       version: "1"
       default_hp_metric: true
 
@@ -68,9 +70,10 @@ dataset:
     root: "/data"
     split: "train"
     download: True
-    batch_size: 256
-    num_workers: 12
+    batch_size: 32
+    num_workers: 8
     pin_memory: False
+    size: 0.05
     transforms:
       train:
         Resize:
@@ -87,8 +90,8 @@ dataset:
     root: "/data"
     split: "test"
     download: True
-    batch_size: 256
-    num_workers: 12
+    batch_size: 32
+    num_workers: 8
     pin_memory: True
     transforms:
       test:
