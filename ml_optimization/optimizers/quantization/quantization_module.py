@@ -4,6 +4,7 @@ from typing import Dict, List
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
+from sklearn.metrics import recall_score, precision_score, f1_score
 
 class QuantizationModule(pl.LightningModule):
     def __init__(
@@ -14,7 +15,8 @@ class QuantizationModule(pl.LightningModule):
         bits: int = 8,
         layers: List[str] = None,
         optimizer: Dict[str, str] = None,
-        scheduler: Dict[str, str] = None
+        scheduler: Dict[str, str] = None,
+        loss: str = "cross_entropy"
     ):
         """
         PyTorch Lightning module for model quantize.
@@ -23,14 +25,17 @@ class QuantizationModule(pl.LightningModule):
             model: The model to quantize
         """
         super().__init__()
+
         self.model = copy.deepcopy(model)
+        self.validation_data = []
         self.quantization_config = {
             "method": quantization_method,
             "method_params": quantization_params,
             "bits": bits,
             "layers": layers,
             "optimizer": optimizer,
-            "scheduler": scheduler
+            "scheduler": scheduler,
+            "loss": loss
         }
 
         self._apply_quantization()
@@ -110,12 +115,15 @@ class QuantizationModule(pl.LightningModule):
     
     def configure_optimizers(self):
         optim = getattr(torch.optim, self.quantization_config["optimizer"]["name"])
-        scheduler = getattr(torch.optim.lr_scheduler, self.quantization_config["scheduler"]["name"])
-
         optim = optim(self.parameters(), **self.quantization_config["optimizer"]["params"])
-        scheduler = scheduler(optim, **{key: eval(val) if "lambda" in key else val for key, val in self.quantization_config["scheduler"]["params"].items()})
 
-        return [optim], [scheduler]
+        if self.quantization_config["scheduler"] is not None:
+            scheduler = getattr(torch.optim.lr_scheduler, self.quantization_config["scheduler"]["name"])
+            scheduler = scheduler(optim, **{key: eval(val) if "lambda" in key else val for key, val in self.quantization_config["scheduler"]["params"].items()})
+
+            return [optim], [scheduler]
+
+        return optim
 
     def training_step(self, batch, batch_idx):
         x, y = batch
@@ -129,7 +137,33 @@ class QuantizationModule(pl.LightningModule):
         quantized_model = torch.ao.quantization.convert(self.model.eval(), inplace=False)
         quantized_model.eval()
         x, y = batch
-        y_hat = self(x)
+        y_hat = quantized_model(x)
+        self.validation_data.append((torch.argmax(y_hat, -1), y))
         loss = nn.functional.cross_entropy(y_hat, y)
         self.log("val_loss", loss, prog_bar=True)
         return loss
+
+    def on_validation_epoch_end(self):
+        model_logits = torch.cat([x[0] for x in self.validation_data]).cpu()
+        model_targets = torch.cat([x[1] for x in self.validation_data]).cpu()
+
+        accuracy = (model_logits == model_targets).float().mean().item()
+        metrics = {
+            'val_recall_micro': recall_score(model_targets, model_logits, average='micro', zero_division=0),
+            'val_recall_macro': recall_score(model_targets, model_logits, average='macro', zero_division=0),
+            'val_recall_weighted': recall_score(model_targets, model_logits, average='weighted', zero_division=0),
+
+            'val_precision_micro': precision_score(model_targets, model_logits, average='micro', zero_division=0),
+            'val_precision_macro': precision_score(model_targets, model_logits, average='macro', zero_division=0),
+            'val_precision_weighted': precision_score(model_targets, model_logits, average='weighted', zero_division=0),
+
+            'val_f1_micro': f1_score(model_targets, model_logits, average='micro', zero_division=0),
+            'val_f1_macro': f1_score(model_targets, model_logits, average='macro', zero_division=0),
+            'val_f1_weighted': f1_score(model_targets, model_logits, average='weighted', zero_division=0),
+        }
+        self.log('val_accuracy', accuracy, prog_bar=True)
+        self.log_dict(metrics)
+        self.validation_data.clear()
+
+        metrics.update({'val_accuracy': accuracy})
+        return metrics

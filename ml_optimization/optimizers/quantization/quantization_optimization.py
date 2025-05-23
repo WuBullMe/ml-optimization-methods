@@ -41,6 +41,3 @@ class QuantizationOptimization(nn.Module):
         )
 
         trainer.fit(quantization, dataloaders["train"], dataloaders["val"])
-
-        if self.config["QuantizationModule"]["quantization_method"] == "qat":
-            quantized_model = torch.quantization.convert(prepared_model.eval())
