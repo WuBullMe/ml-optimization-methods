@@ -1,6 +1,6 @@
 # Model configuration
 model:
-  name_class: "NetModel"
+  name_class: "ResNet18Model"
   params:
     num_classes: 10
 
@@ -12,7 +12,7 @@ optimization:
     pruning_method: L1Unstructured
     n_norm: 1
     global_pruning: True
-    amount: 0.05
+    amount: 0.1
     prune_every_n_epochs: 2
 
     optimizer:
@@ -28,7 +28,7 @@ optimization:
     loss: "cross_entropy"
     
   train:
-    max_epochs: 20
+    max_epochs: 10
   
   callbacks:
     - class: "ModelCheckpoint"
@@ -55,8 +55,8 @@ optimization:
     logger: "TensorBoard"
     params:
       save_dir: "./logs"
-      name: "prune_unstructed_global_netmodel_cifar10"
-      version: "4"
+      name: "prune_unstructed_global_resnet18_cifar10"
+      version: "1"
       default_hp_metric: false
 
     log_every_n_steps: 5

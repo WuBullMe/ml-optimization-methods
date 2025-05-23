@@ -4,121 +4,141 @@ from typing import Dict, List
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
+import torch.nn.utils.prune as prune
+from sklearn.metrics import recall_score, precision_score, f1_score
 
-class QuantizationModule(pl.LightningModule):
+class PruningModule(pl.LightningModule):
     def __init__(
         self,
         model: nn.Module,
-        quantization_method: str = "fp16",
-        quantization_params: Dict[str, str] = None,
-        bits: int = 8,
-        layers: List[str] = None,
+        pruning_method: str = "l1_unstructured",
+        amount: float = 0.2,
+        n_norm: int = 1,
+        layers_to_prune: List[str] = None,
+        global_pruning: bool = False,
+        prune_every_n_epochs: int = 1,
         optimizer: Dict[str, str] = None,
         scheduler: Dict[str, str] = None,
         loss: str = "cross_entropy"
     ):
         """
-        PyTorch Lightning module for model quantize.
+        PyTorch Lightning module for model pruning.
         
         Args:
-            model: The model to quantize
+            model: The model to prune
+            pruning_method: One of ['l1_unstructured', 'l1_structured', 'random_unstructured', 'ln_structured']
+            amount: Fraction of connections to prune (0.0-1.0)
+            n_norm: Do pruning in n_norm normalize
+            layers_to_prune: List of layer names to prune (None = all Conv/Linear layers)
+            global_pruning: Whether to prune across all specified layers simultaneously
+            prune_every_n_epochs: Frequency of pruning
+            optimizer: What optimizer to use for training and its params
+            scheduler: Scheduler for optimizer and its params
         """
         super().__init__()
+        self.save_hyperparameters()
 
         self.model = copy.deepcopy(model)
         self.validation_data = []
-        self.quantization_config = {
-            "method": quantization_method,
-            "method_params": quantization_params,
-            "bits": bits,
-            "layers": layers,
+        self.pruning_config = {
+            "method": pruning_method,
+            "amount": amount,
+            "n_norm": n_norm,
+            "layers": layers_to_prune,
+            "global": global_pruning,
+            "frequency": prune_every_n_epochs,
             "optimizer": optimizer,
             "scheduler": scheduler,
             "loss": loss
         }
-
-        self._apply_quantization()
+        
+        # Initialize pruning parameters
+        self._setup_pruning()
+        
+    def _setup_pruning(self):
+        # """Identify layers to prune and initialize pruning containers"""
+        self.pruning_config["layers"] = [
+            name for name, module in self.model.named_modules()
+            if isinstance(module, tuple([getattr(nn, layer) for layer in self.pruning_config["layers"]]))
+        ]
+    
+    def _apply_pruning(self):
+        """Apply pruning to all specified layers"""
+        current_amount = self.pruning_config["amount"]
+        
+        if self.pruning_config["global"]:
+        
+        # Create pruning containers
+            parameters_to_prune = []
+            for name, module in self.model.named_modules(): 
+                if name in self.pruning_config["layers"]:
+                    parameters_to_prune.append((module, "weight"))
             
-    def _apply_quantization(self) -> nn.Module:
-        """Apply specific quantization method to model"""
-        quant_type = self.quantization_config['method']
-        bits = self.quantization_config.get('bits', 8)
-        
-        if quant_type.startswith("dynamic"):
-            self._apply_dynamic_quantization()
-        # elif quant_type == 'static':
-        #     return self._apply_static_quantization(self.model)
-        elif quant_type.startswith("qat"):
-            self._apply_qat()
-        # elif quant_type.startswith("fp16"):
-        #     return self.model.half()
+            if "unstructured" in self.pruning_config["method"].lower():
+                prune.global_unstructured(
+                     parameters_to_prune,
+                     pruning_method=getattr(prune, self.pruning_config["method"]),
+                     amount=current_amount
+                )
+            else:
+                for name, module in self.model.named_modules(): 
+                    if name in self.pruning_config["layers"]:
+                        if "unstructured" in self.pruning_config["method"].lower():
+                            prune_method = getattr(prune, self.pruning_config["method"])
+                            prune_method(module, name="weight", amount=current_amount)
+                        else:
+                            dim = self.pruning_config["n_norm"]
+                            prune.ln_structured(
+                                module, name="weight", amount=current_amount, n=dim, dim=1
+                            )
         else:
-            raise ValueError(f"Unknown quantization type: {quant_type}")
+            # Layer-wise pruning
+            for name, module in self.model.named_modules(): 
+                if name in self.pruning_config["layers"]:
+                    if "unstructured" in self.pruning_config["method"].lower():
+                        prune_method = getattr(prune, self.pruning_config["method"])
+                        prune_method(module, name="weight", amount=current_amount)
+                    else:
+                        dim = self.pruning_config["n_norm"]
+                        prune.ln_structured(
+                            module, name="weight", amount=current_amount, n=dim, dim=1
+                        )
+        
+        # Log sparsity statistics
+        self._log_sparsity()
     
-    def _apply_dynamic_quantization(self, model: nn.Module) -> nn.Module:
-        """Apply dynamic quantization"""
-        quantized_model = torch.ao.quantization.quantize_dynamic(
-            model,
-            set([getattr(nn, layer) for layer in self.quantization_config["layers"]]),
-            dtype={
-                8: torch.qint8,
-                16: torch.float16
-            }[self.quantization_config.get('bits', 8)]
-        )
-        return quantized_model
+    def _log_sparsity(self):
+        """Log sparsity statistics to TensorBoard"""
+        total_params = 0
+        total_pruned = 0
+        
+        for name, module in self.model.named_modules(): 
+            if name in self.pruning_config["layers"]:
+                sparsity = torch.sum(module.weight == 0).item() / module.weight.numel()
+                self.log(f"pruning/sparsity/{name}", sparsity, prog_bar=False)
+                total_params += module.weight.numel()
+                total_pruned += torch.sum(module.weight == 0).item()
+        
+        global_sparsity = total_pruned / total_params if total_params > 0 else 0
+        self.log("pruning/global_sparsity", global_sparsity, prog_bar=True)
+        self.log("Pruned params: ", total_pruned)
     
-    # def _apply_static_quantization(self, model: nn.Module) -> nn.Module:
-    #     """Apply static quantization with calibration"""
-    #     # Prepare model
-    #     model.eval()
-    #     model.fuse_model()
-        
-    #     # Set quantization config
-    #     model.qconfig = torch.quantization.get_default_qconfig('fbgemm')
-        
-    #     # Prepare for calibration
-    #     prepared_model = torch.quantization.prepare(model)
-        
-    #     # Calibrate with sample data
-    #     self._calibrate_model(prepared_model, self.quantization_config.get('calibration_steps', 100))
-        
-    #     # Convert to quantized model
-    #     quantized_model = torch.quantization.convert(prepared_model)
-    #     return quantized_model
-
-    # def _calibrate_model(self, model: nn.Module, steps: int):
-    #     """Run calibration for static quantization"""
-    #     # Implement calibration with sample data
-    #     pass
+    def on_train_epoch_start(self):
+        """Apply pruning at specified intervals"""
+        current_epoch = self.current_epoch
+        if (current_epoch % self.pruning_config["frequency"] == 0):
+            self._apply_pruning()
     
-    def _apply_qat(self) -> nn.Module:
-        """Apply Quantization-Aware Training"""
-        # Prepare model for QAT
-        # model.eval()
-        # model.fuse_model(is_qat=True)
-        self.model.qconfig = torch.ao.quantization.get_default_qat_qconfig('x86')
-        
-        # Prepare for QAT
-        torch.ao.quantization.prepare_qat(self.model, inplace=True)
-
-        # # Fine-tune with quantization aware training
-        # optimizer = self._create_optimizer(prepared_model)
-        # self._train_model(prepared_model, optimizer, self.quantization_config.get('qat_epochs', 5))
-        
-        # # Convert to quantized model
-        # quantized_model = torch.quantization.convert(prepared_model.eval())
-        # return quantized_model
-        
     def forward(self, x):
         return self.model(x)
     
     def configure_optimizers(self):
-        optim = getattr(torch.optim, self.quantization_config["optimizer"]["name"])
-        optim = optim(self.parameters(), **self.quantization_config["optimizer"]["params"])
+        optim = getattr(torch.optim, self.pruning_config["optimizer"]["name"])
+        optim = optim(self.parameters(), **self.pruning_config["optimizer"]["params"])
 
-        if self.quantization_config["scheduler"] is not None:
-            scheduler = getattr(torch.optim.lr_scheduler, self.quantization_config["scheduler"]["name"])
-            scheduler = scheduler(optim, **{key: eval(val) if "lambda" in key else val for key, val in self.quantization_config["scheduler"]["params"].items()})
+        if self.pruning_config["scheduler"] is not None:
+            scheduler = getattr(torch.optim.lr_scheduler, self.pruning_config["scheduler"]["name"])
+            scheduler = scheduler(optim, **{key: eval(val) if "lambda" in key else val for key, val in self.pruning_config["scheduler"]["params"].items()})
 
             return [optim], [scheduler]
 
@@ -127,18 +147,17 @@ class QuantizationModule(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        loss = nn.functional.cross_entropy(y_hat, y)
+        optim = getattr(nn.functional, self.pruning_config["loss"])
+        loss = optim(y_hat, y)
         self.log("train_loss", loss, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        # Convert to quantized model to evaluate
-        quantized_model = torch.ao.quantization.convert(self.model.eval(), inplace=False)
-        quantized_model.eval()
         x, y = batch
-        y_hat = quantized_model(x)
+        y_hat = self(x)
         self.validation_data.append((torch.argmax(y_hat, -1), y))
-        loss = nn.functional.cross_entropy(y_hat, y)
+        optim = getattr(nn.functional, self.pruning_config["loss"])
+        loss = optim(y_hat, y)
         self.log("val_loss", loss, prog_bar=True)
         return loss
 

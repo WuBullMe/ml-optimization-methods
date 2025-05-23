@@ -34,7 +34,7 @@ if __name__ == '__main__':
 
 
     my_class_model = globals()[config["model"]["name_class"]]
-    model = NetModel(config["model"]["params"])
+    model = my_class_model(config["model"]["params"])
     
 
     dataloaders = {}
