@@ -36,6 +36,7 @@ batch_size = [1, 32, 64, 128, 256]
 device = ['cuda']
 
 model = BaseModule.load_from_checkpoint(MODEL_PATH, map_location='cpu', strict=False).model
+model.eval()
 
 results = []
 

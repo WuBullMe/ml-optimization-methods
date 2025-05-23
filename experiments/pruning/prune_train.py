@@ -34,8 +34,6 @@ if __name__ == '__main__':
 
 
     my_class_model = globals()[config["model"]["name_class"]]
-    print("my_class_model:", my_class_model)
-    print("params:", config["model"]["params"])
     model = NetModel(config["model"]["params"])
     
 
